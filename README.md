@@ -88,4 +88,4 @@ Mandrill lets you set up tags. The method ```\nickcv\mandrill\Message::setTags($
     ->setTags(['registration']);
 ```
 
-For more informations check the component documentation.
+For more information check the component documentation.
