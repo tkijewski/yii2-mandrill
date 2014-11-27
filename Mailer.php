@@ -38,7 +38,12 @@ class Mailer extends BaseMailer
      * @var string Mandrill API key
      */
     private $_apikey;
-
+    
+    /**
+     * @var string message default class name.
+     */
+    public $messageClass = 'nickcv\mandrill\Message';
+    
     /**
      * @var boolean whether to use Mandrill async mode, defaults to false
      * @see https://mandrillapp.com/api/docs/messages.php.html#method=send
