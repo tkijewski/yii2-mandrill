@@ -154,6 +154,58 @@ class Message extends BaseMessage
      * @var array
      */
     private $_images = [];
+    /**
+     * Contains the array of merge vars for INDIVIDUAL recipients
+     * Each entry within the array is an array with the following keys:
+     * 
+     * ~~~
+     * [
+     *    [
+     *       'rcpt' => 'user1.email@example.com',
+     *       'vars' => [
+     *           [
+     *               'name' => 'Name of user1',
+     *               'content' => 'content specific to user1'
+     *           ]
+     *       ]
+     *    ]
+     * ]
+     * ~~~
+     * 
+     * @see \nickcv\mandrill\Message::setMergeVars() setter
+     * @see \nickcv\mandrill\Message::getMergeVars() getter
+     *
+     * @var array
+     */
+    public $_mergeVars = [];
+    /**
+     * Contains the array of merge vars for ALL recipients
+     * Each entry within the array is an array with the following keys:
+     * 
+     * ~~~
+     * [
+     *    [
+     *       'name' => 'Name of user1',
+     *       'content' => 'content specific to user1'
+     *    ]
+     * ]
+     * ~~~
+     * 
+     * @see \nickcv\mandrill\Message::setGlobalMergeVars() setter
+     * @see \nickcv\mandrill\Message::getGlobalMergeVars() getter
+     *
+     * @var array
+     */
+    private $_globalMergeVars = [];
+
+    /**
+     * @var string "YYYY-MM-DD HH:MM:SS" format for scheduled messages
+     * @see https://mandrillapp.com/api/docs/messages.php.html#method=send
+     * 
+     * @see \nickcv\mandrill\Message::setSendAt() setter
+     * @see \nickcv\mandrill\Message::getSendAt() getter
+     */
+    public $_sendAt = NULL;
 
     /**
      * Contains the instance of \finfo used to get mime type.
@@ -553,6 +605,124 @@ class Message extends BaseMessage
     }
 
     /**
+     * Sets the send at time. 
+     * Checks for valid UTC timestamp or valid "YYYY-MM-DD HH:MM:SS" string
+     * 
+     * @see \nickcv\mandrill\Message::getSendAt() getter
+     * @see \nickcv\mandrill\Message::$_sendAt private attribute
+     * 
+     * @param string|int $sendAt "YYYY-MM-DD HH:MM:SS" string OR UTC timestamp integer
+     * @return \nickcv\mandrill\Message
+     */
+    public function setSendAt($sendAt)
+    {
+        if (((string) (int) $sendAt == $sendAt) 
+            && ($sendAt <= PHP_INT_MAX)
+            && ($sendAt >= ~PHP_INT_MAX))
+        {
+            $this->_sendAt = date('Y-m-d h:i:s',$sendAt);
+        }
+        else if (preg_match('/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/',$sendAt,$match))
+        {
+            $this->_sendAt = $sendAt;
+        }
+        else
+            throw new InvalidConfigException('"' . get_class($this) . '::sendAt" should be either UTC timestamp or, "YYYY-MM-DD HH:MM:SS"');
+
+        return $this;
+    }
+
+    /**
+     * Returns the sendAt time
+     * 
+     * @see \nickcv\mandrill\Message::setSendAt() setter
+     * @see \nickcv\mandrill\Message::$_sendAt private attribute
+     * 
+     * @return string
+     */
+    public function getSendAt()
+    {
+        if (!$this->_sendAt)
+            $this->_sendAt = date('Y-m-d h:i:s');
+        return $this->_sendAt;
+    }
+
+    /**
+     * Sets the merge vars
+     * 
+     * @see \nickcv\mandrill\Message::getMergeVars() getter
+     * @see \nickcv\mandrill\Message::$_mergeVars private attribute
+     * 
+     * @param array $mergeVars
+     * @return \nickcv\mandrill\Message
+     */
+    public function setMergeVars($mergeVars)
+    {
+        if (is_array($mergeVars)) {
+            $this->_mergeVars = $mergeVars;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Returns the merge vars
+     * 
+     * @see \nickcv\mandrill\Message::setMergeVars() setter
+     * @see \nickcv\mandrill\Message::$_mergeVars private attribute
+     * 
+     * @return array
+     */
+    public function getMergeVars()
+    {
+        return $this->_mergeVars;
+    }
+
+    /**
+     * Sets the global merge vars
+     *  
+     * Converts ['key1'=>'value1','key2'=>'value2'] pairs to
+     *  [
+     *   ['name'=>'key1','content'=>'value1'],
+     *   ['name'=>'key2','content'=>'value2']
+     *  ]
+     *
+     * @see \nickcv\mandrill\Message::getGlobalMergeVars() getter
+     * @see \nickcv\mandrill\Message::$_globalMergeVars private attribute
+     *    
+     *
+     * @param array $globalMergeVars
+     * @return \nickcv\mandrill\Message
+     */
+    public function setGlobalMergeVars($globalMergeVars)
+    {
+        if (is_array($globalMergeVars)) {
+            $submitArray = [];
+            foreach ($globalMergeVars as $key => $value)
+                array_push($submitArray,['name'=>$key,'content'=>$value]);
+            $this->_globalMergeVars = $submitArray;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Returns the global merge vars
+     * 
+     * @see \nickcv\mandrill\Message::setGlobalMergeVars() setter
+     * @see \nickcv\mandrill\Message::$_globalMergeVars private attribute
+     * 
+     * @return array
+     */
+    public function getGlobalMergeVars()
+    {
+        return $this->_globalMergeVars;
+    }
+
+
+
+
+    /**
      * Returns the attachments array.
      * 
      * @see \nickcv\mandrill\Message::attach() setter for file name
@@ -722,6 +892,8 @@ class Message extends BaseMessage
             'from_email' => $this->getFromAddress(),
             'from_name' => $this->getFromName(),
             'to' => $this->getAllRecipients(),
+            'global_merge_vars'=>$this->getGlobalMergeVars(),
+            'merge_vars'=>$this->getMergeVars(),
             'track_opens' => true,
             'track_clicks' => true,
             'tags' => $this->_tags,
